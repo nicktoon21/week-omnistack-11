@@ -8,11 +8,11 @@ module.exports = {
             .where('id', id)
             .select('name')
             .first()
-       /*     
+    
         if (!ong) {
             return response.status(400).json({ erro: 'No ONG found with this ID'})
         }
-        */
+        
 
         return response.json(ong);
     }
