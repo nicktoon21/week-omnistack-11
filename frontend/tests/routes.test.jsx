@@ -124,7 +124,9 @@ describe('Fluxo de login', () => {
 
   it('mantém no logon quando a API recusa', async () => {
     const user = userEvent.setup();
-    const alerta = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    // stubGlobal em vez de spyOn: nem todo ambiente DOM define window.alert.
+    const alerta = vi.fn();
+    vi.stubGlobal('alert', alerta);
     api.post.mockRejectedValue({
       response: { status: 401, data: { error: 'Nenhuma ONG encontrada com este ID.' } },
     });
