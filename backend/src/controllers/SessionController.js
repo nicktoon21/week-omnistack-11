@@ -1,19 +1,27 @@
-const connection = require('../database/connection')
+const jwt = require('jsonwebtoken');
+
+const connection = require('../database/connection');
+const AppError = require('../errors/AppError');
+const env = require('../config/env');
 
 module.exports = {
-    async create(request, response){
-        const { id } = request.body;
+  async create(request, response) {
+    const { id } = request.validated.body;
 
-        const ong = await connection('ongs')
-            .where('id', id)
-            .select('name')
-            .first()
-    
-        if (!ong) {
-            return response.status(400).json({ erro: 'No ONG found with this ID'})
-        }
-        
+    const ong = await connection('ongs')
+      .where('id', id)
+      .select('id', 'name')
+      .first();
 
-        return response.json(ong);
+    if (!ong) {
+      throw new AppError('Nenhuma ONG encontrada com este ID.', 401);
     }
-}
+
+    const token = jwt.sign({}, env.jwt.secret, {
+      subject: ong.id,
+      expiresIn: env.jwt.expiresIn,
+    });
+
+    return response.json({ name: ong.name, token });
+  },
+};

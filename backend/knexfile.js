@@ -1,48 +1,31 @@
-// Update with your config settings.
+const env = require('./src/config/env');
+
+const migrations = {
+  directory: './src/database/migrations',
+  tableName: 'knex_migrations',
+};
 
 module.exports = {
-
   development: {
     client: 'sqlite3',
-    connection: {
-      filename:  './src/database/db.sqlite',
-    },
-    migrations:{
-      directory: './src/database/migrations',
-    },
+    connection: { filename: env.database.filename },
+    migrations,
     useNullAsDefault: true,
   },
 
-  staging: {
-    client: 'postgresql',
-    connection: {
-      database: 'my_db',
-      user:     'username',
-      password: 'password'
-    },
-    pool: {
-      min: 2,
-      max: 10
-    },
-    migrations: {
-      tableName: 'knex_migrations'
-    }
+  test: {
+    client: 'sqlite3',
+    connection: { filename: ':memory:' },
+    migrations,
+    useNullAsDefault: true,
+    // Uma única conexão persistente: o banco em memória morre junto com ela.
+    pool: { min: 1, max: 1 },
   },
 
   production: {
-    client: 'postgresql',
-    connection: {
-      database: 'my_db',
-      user:     'username',
-      password: 'password'
-    },
-    pool: {
-      min: 2,
-      max: 10
-    },
-    migrations: {
-      tableName: 'knex_migrations'
-    }
-  }
-
+    client: 'pg',
+    connection: env.database.url,
+    migrations,
+    pool: { min: 2, max: 10 },
+  },
 };
