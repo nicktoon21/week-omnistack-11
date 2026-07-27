@@ -1,58 +1,65 @@
-const connection = require(`../database/connection`)
+const connection = require('../database/connection');
+const AppError = require('../errors/AppError');
+const env = require('../config/env');
 
-module.exports =  {
-    async index(request,response){
-        const {page = 1} = request.query;
+// `returning` devolve objetos no Postgres e escalares em alguns drivers.
+const toId = (row) => (row && typeof row === 'object' ? row.id : row);
 
-        const [count] = await connection('incidents').count();
+module.exports = {
+  async index(request, response) {
+    const { page } = request.validated.query;
+    const pageSize = env.pageSize;
 
-        console.log(count);
-        const incidents = await connection('incidents')
-        .join('ongs', 'ongs.id','=', 'incidents.ong_id')
-        .limit(5)
-        .offset((page -1) * 5)
-        .select(
-            'incidents.*',
-            'ongs.name',
-            'ongs.email',
-            'ongs.whatsapp',
-            'ongs.city',
-            'ongs.uf'
-            );
+    // Alias explícito: `count(*)` como chave varia entre drivers.
+    const [{ count }] = await connection('incidents').count('* as count');
 
-        response.header('x-Total-Count', count['count(*)']);
+    const incidents = await connection('incidents')
+      .join('ongs', 'ongs.id', '=', 'incidents.ong_id')
+      .orderBy('incidents.id', 'desc')
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+      .select(
+        'incidents.*',
+        'ongs.name',
+        'ongs.email',
+        'ongs.whatsapp',
+        'ongs.city',
+        'ongs.uf',
+      );
 
-        return response.json(incidents);
-    },
+    response.header('X-Total-Count', String(count));
 
-    async create(request, response) {
-        const {title, description, values} = request.body;
-        const ong_id = request.headers.authorization;
+    return response.json(incidents);
+  },
 
-        const [id] = await connection('incidents').insert({
-            title,
-            description,
-            values,
-            ong_id,
-        });
+  async create(request, response) {
+    const { title, description, values } = request.validated.body;
 
-        return response.json({ id });
-    },
+    const [row] = await connection('incidents')
+      .insert({ title, description, values, ong_id: request.ongId })
+      .returning('id');
 
-    async delete(request,response){
-        const { id } = request.params;
-        const ong_id = request.headers.authorization;
-        const incident = await connection('incidents')
-            .where('id', id)
-            .select('ong_id')
-            .first()
+    return response.status(201).json({ id: toId(row) });
+  },
 
-        if (incident.ong_id != ong_id){
-            return response.status(401).json({ error: 'Operation not permitted.'});
-        }
+  async delete(request, response) {
+    const { id } = request.validated.params;
 
-        await connection('incidents').where('id',id).delete();
+    const incident = await connection('incidents')
+      .where('id', id)
+      .select('ong_id')
+      .first();
 
-        return response.status(204).send();
+    if (!incident) {
+      throw new AppError('Caso não encontrado.', 404);
     }
+
+    if (incident.ong_id !== request.ongId) {
+      throw new AppError('Operação não permitida.', 403);
+    }
+
+    await connection('incidents').where('id', id).delete();
+
+    return response.status(204).send();
+  },
 };
