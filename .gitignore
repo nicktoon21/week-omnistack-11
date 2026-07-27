@@ -1,0 +1,7 @@
+.claude/
+.claude-flow/
+.swarm/
+.agents/
+.mcp.json
+skills-lock.json
+ruvector.db
